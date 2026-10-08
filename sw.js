@@ -1,5 +1,5 @@
 // Energy Log service worker. Bump CACHE when you deploy a new version.
-const CACHE = "energy-log-v5";
+const CACHE = "energy-log-v6";
 const SHELL = ["./", "index.html", "manifest.webmanifest", "icon-192.png", "icon-512.png", "icon-maskable-512.png", "apple-touch-icon.png"];
 
 self.addEventListener("install", (e) => {

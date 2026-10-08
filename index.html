@@ -621,7 +621,7 @@ function renderChart(){
     st.innerHTML = '<div class="stat"><div class="lab">Logs</div><div class="v">'+logs.length+'</div></div>'
       + '<div class="stat"><div class="lab">Average</div><div class="v">'+fmt1(avg)+'</div></div>'
       + '<div class="stat"><div class="lab">Highest</div><div class="v">'+fmt1(hi.energy)+'</div><div class="d">'+esc(stamp(hi))+'</div></div>'
-      + '<div class="stat"><div class="lab">Lowest</div><div class="v">'+fmt1(lo.energy)+'</div><div class="d">'+esc(stamp(lo))+'</div></div>';
+      + '<div class="stat"><div class="lab">Lowest</div><div class="v">'+fmt1(lo.energy)+'</div><div class="d">'+esc(stamp(lo))+'</div></div>' + intakeTiles(logs);
   } else st.innerHTML = "";
   var sel = logs.find(function(l){ return l.id === state.selected; });
   $("pointDetail").innerHTML = sel ? '<div class="detail">'+detailHtml(sel)+'</div>' : (allLogs().length ? "" : emptyHtml("Your chart fills in as you log. A few logs a day is enough to see a shape."));
@@ -637,6 +637,32 @@ function suggestCal(){
 }
 function ateText(l){ return [l.ate, typeof l.cal === "number" ? "about " + l.cal + " cal" : "", l.ateAgo ? l.ateAgo.charAt(0).toLowerCase() + l.ateAgo.slice(1) + " ago" : ""].filter(Boolean).join(", "); }
 function mgText(l){ return typeof l.mg === "number" ? "about " + l.mg + " mg" : ""; }
+/* Totals count each meal and each caffeine dose once, even when several logs mention it. */
+function intakeTotals(logs){
+  var cal = 0, mg = 0, hasCal = false, hasMg = false, lastFood = null, lastCaf = null, days = {};
+  logs.forEach(function(l){
+    var day = new Date(l.ts).toDateString(); days[day] = 1;
+    if(typeof l.cal === "number"){
+      var fk = day + "|" + norm(l.ate) + "|" + l.cal;
+      if(fk !== lastFood) cal += l.cal;
+      lastFood = fk; hasCal = true;
+    }
+    if(l.caf === true && typeof l.mg === "number"){
+      var ck = norm(l.kind) + "|" + l.mg;
+      if(!(lastCaf && lastCaf.k === ck && l.ts - lastCaf.ts <= 30*60000)) mg += l.mg;
+      lastCaf = { k:ck, ts:l.ts }; hasMg = true;
+    }
+  });
+  return { cal:cal, mg:mg, hasCal:hasCal, hasMg:hasMg, days:Object.keys(days).length };
+}
+function intakeTiles(logs){
+  var t = intakeTotals(logs), day = state.range === "day";
+  var tile = function(label, has, total, unit){
+    var sub = !has ? "none logged" : (day ? "total for this day" : "about " + Math.round(total/t.days) + " " + unit + " a day over " + t.days + (t.days === 1 ? " day" : " days"));
+    return '<div class="stat"><div class="lab">'+label+'</div><div class="v">'+(has ? total.toLocaleString() + ' <span style="font-size:.9rem;font-weight:500">'+unit+'</span>' : "–")+'</div><div class="d">'+sub+'</div></div>';
+  };
+  return tile("Calories logged", t.hasCal, t.cal, "cal") + tile("Caffeine logged", t.hasMg, t.mg, "mg");
+}
 function detailHtml(l){
   var rows = [["Time", fmtDay(l.ts)+", "+fmtTime(l.ts)]];
   if(l.caf === true) rows.push(["Caffeine", ["Yes", l.kind, amtText(l), mgText(l)].filter(Boolean).join(" · ")]);
