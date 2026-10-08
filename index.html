@@ -1,0 +1,828 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#eef0f6" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0f1120" media="(prefers-color-scheme: dark)">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Energy Log">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<style>:root{padding:env(safe-area-inset-top,0px) 0 env(safe-area-inset-bottom,0px)}body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style>
+<title>Energy Log</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Instrument+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: one narrow instrument column. A big dial-style reading on top, the 0-10 ramp as the only loud color. */
+:root{
+  --bg:#eef0f6; --surface:#ffffff; --sunken:#e4e7f1; --fg:#14172b; --muted:#5b6078; --line:#c9cde0;
+  --accent:#2f3fd6; --accent-fg:#ffffff; --danger:#c2334a; --trace:#8389a8;
+  --display:"Bricolage Grotesque","Avenir Next","Segoe UI",sans-serif;
+  --body:"Instrument Sans","Helvetica Neue",Arial,sans-serif;
+  --mono:"JetBrains Mono",ui-monospace,Menlo,Consolas,monospace;
+  --ramp:linear-gradient(90deg,#4b4fc4 0%,#2b86c9 25%,#1fa38a 50%,#e0a020 75%,#e5386b 100%);
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --bg:#0f1120; --surface:#191c30; --sunken:#232741; --fg:#eceefb; --muted:#9aa0bd; --line:#333856;
+  --accent:#8794ff; --accent-fg:#0f1120; --danger:#ff7a8c; --trace:#6b7196; color-scheme:dark } }
+:root[data-theme="dark"]{
+  --bg:#0f1120; --surface:#191c30; --sunken:#232741; --fg:#eceefb; --muted:#9aa0bd; --line:#333856;
+  --accent:#8794ff; --accent-fg:#0f1120; --danger:#ff7a8c; --trace:#6b7196; color-scheme:dark }
+
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:16px;line-height:1.45}
+.wrap{max-width:720px;margin:0 auto;padding-inline:16px;padding-block:20px 48px;display:flex;flex-direction:column;gap:18px}
+header.top{display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap}
+h1{font-family:var(--display);font-weight:700;font-size:1.7rem;letter-spacing:-.02em;margin:0}
+h2{font-family:var(--display);font-weight:700;font-size:1.15rem;margin:0;text-wrap:balance}
+.sub{color:var(--muted);font-size:.88rem;margin:0}
+.lab{font-size:.74rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);font-weight:600}
+button,input,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+.tabs{display:grid;grid-template-columns:repeat(4,1fr);background:var(--sunken);border-radius:12px;padding:4px;gap:4px}
+.tabs button{border:0;background:transparent;padding:9px 4px;border-radius:9px;font-weight:600;color:var(--muted)}
+.tabs button[aria-selected="true"]{background:var(--surface);color:var(--fg)}
+
+.panel{background:var(--surface);border-radius:16px;padding:18px;display:flex;flex-direction:column;gap:16px;min-width:0}
+.stack{display:flex;flex-direction:column;gap:18px}
+.field{display:flex;flex-direction:column;gap:6px;min-width:0}
+input[type=text],input[type=number],input[type=datetime-local],textarea{
+  background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:10px 12px;width:100%;min-width:0}
+textarea{resize:vertical;min-height:64px}
+
+/* the reading */
+.reading{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.reading .num{font-family:var(--display);font-weight:700;font-size:4.6rem;line-height:.9;letter-spacing:-.04em;font-variant-numeric:tabular-nums}
+.reading .of{font-family:var(--mono);color:var(--muted);font-size:.9rem;margin-left:6px}
+.word{display:flex;align-items:center;gap:8px;font-weight:600}
+.dot{width:12px;height:12px;border-radius:50%;flex:none}
+.dial{display:flex;flex-direction:column;gap:6px}
+input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:36px;background:transparent;margin:0}
+input[type=range]::-webkit-slider-runnable-track{height:14px;border-radius:7px;background:var(--ramp)}
+input[type=range]::-moz-range-track{height:14px;border-radius:7px;background:var(--ramp)}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:30px;height:30px;border-radius:50%;background:var(--surface);border:3px solid var(--fg);margin-top:-8px}
+input[type=range].plain::-webkit-slider-runnable-track{background:var(--line)}
+input[type=range].plain::-moz-range-track{background:var(--line)}
+input[type=range]::-moz-range-thumb{width:24px;height:24px;border-radius:50%;background:var(--surface);border:3px solid var(--fg)}
+.scale{display:flex;justify-content:space-between;font-family:var(--mono);font-size:.72rem;color:var(--muted)}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.row > .grow{flex:1 1 160px;min-width:0}
+.exact{width:110px !important;font-family:var(--mono)}
+
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{border:1px solid var(--line);background:var(--bg);border-radius:999px;padding:8px 14px;font-weight:500}
+.chip[aria-pressed="true"]{background:var(--fg);color:var(--bg);border-color:var(--fg)}
+.btn{border:0;background:var(--accent);color:var(--accent-fg);border-radius:12px;padding:13px 18px;font-weight:600}
+.btn.ghost{background:transparent;color:var(--fg);border:1px solid var(--line)}
+.btn.small{padding:7px 12px;border-radius:9px;font-size:.88rem}
+.btn.danger{background:var(--danger);color:var(--surface)}
+.linkbtn{border:0;background:none;color:var(--accent);padding:4px 0;font-weight:600;font-size:.9rem}
+
+.seg{display:inline-flex;background:var(--sunken);border-radius:10px;padding:3px;gap:3px}
+.seg button{border:0;background:transparent;padding:7px 12px;border-radius:8px;font-weight:600;color:var(--muted);font-size:.9rem}
+.seg button[aria-pressed="true"]{background:var(--surface);color:var(--fg)}
+.nav{display:flex;align-items:center;gap:8px;justify-content:space-between;flex-wrap:wrap}
+.nav .when{font-family:var(--mono);font-size:.85rem}
+.nav .arrows{display:flex;gap:6px}
+.chartbox{width:100%;min-width:0}
+svg{display:block;width:100%;height:auto;font-family:var(--mono)}
+svg text{fill:var(--muted);font-size:11px}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:12px}
+.stat .v{font-family:var(--display);font-weight:700;font-size:1.5rem;font-variant-numeric:tabular-nums}
+.stat .d{font-size:.82rem;color:var(--muted)}
+.detail{background:var(--bg);border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:6px}
+.kv{display:grid;grid-template-columns:110px 1fr;gap:4px 10px;font-size:.92rem}
+.kv dt{color:var(--muted)} .kv dd{margin:0;min-width:0;overflow-wrap:anywhere}
+.legend{font-size:.82rem;color:var(--muted);display:flex;gap:14px;flex-wrap:wrap;align-items:center}
+.ring{display:inline-block;width:12px;height:12px;border-radius:50%;border:2px solid var(--fg);vertical-align:-1px;margin-right:5px}
+
+.two{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:18px}
+.rank{list-style:none;margin:0;padding:0;display:flex;flex-direction:column}
+.rank li{display:grid;grid-template-columns:1fr auto auto;gap:10px;align-items:center;padding:8px 0;border-bottom:1px solid var(--line);font-size:.94rem}
+.rank li:last-child{border-bottom:0}
+.rank .name{min-width:0;overflow-wrap:anywhere}
+.rank .avg{font-family:var(--mono);font-weight:600;display:flex;align-items:center;gap:6px}
+.rank .n{font-family:var(--mono);color:var(--muted);font-size:.8rem}
+.quote{font-size:.9rem;color:var(--muted);border-left:2px solid var(--line);padding-left:10px;margin:0;overflow-wrap:anywhere}
+
+.hist{list-style:none;margin:0;padding:0;display:flex;flex-direction:column}
+.hist li{display:grid;grid-template-columns:auto 1fr;gap:4px 14px;padding:14px 0;border-bottom:1px solid var(--line)}
+.hist li:last-child{border-bottom:0}
+.hist .e{font-family:var(--display);font-weight:700;font-size:1.5rem;font-variant-numeric:tabular-nums;display:flex;align-items:center;gap:8px;min-width:74px}
+.hist .body{min-width:0;display:flex;flex-direction:column;gap:3px;font-size:.92rem;overflow-wrap:anywhere}
+.hist .t{font-family:var(--mono);font-size:.82rem;color:var(--muted)}
+.hist .acts{display:flex;gap:14px;flex-wrap:wrap}
+.daysep{font-family:var(--mono);font-size:.78rem;color:var(--muted);padding-top:14px}
+
+.empty{text-align:center;padding:26px 10px;display:flex;flex-direction:column;gap:10px;align-items:center;color:var(--muted)}
+.banner{background:var(--sunken);border-radius:12px;padding:10px 14px;font-size:.9rem;display:flex;gap:10px;justify-content:space-between;align-items:center;flex-wrap:wrap}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(20px + env(safe-area-inset-bottom,0px));background:var(--fg);color:var(--bg);padding:10px 16px;border-radius:999px;font-weight:600;font-size:.92rem;max-width:calc(100% - 32px);z-index:5}
+footer{font-size:.82rem;color:var(--muted);text-align:center}
+@media (max-width:420px){ .reading .num{font-size:3.8rem} .kv{grid-template-columns:92px 1fr} }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header class="top">
+    <h1>Energy Log</h1>
+    <p class="sub" id="countline">0 = nearly unconscious · 10 = bouncing off the walls</p>
+  </header>
+
+  <div class="tabs" role="tablist" aria-label="Sections">
+    <button role="tab" id="tab-log" data-tab="log" aria-selected="true">Log</button>
+    <button role="tab" id="tab-chart" data-tab="chart" aria-selected="false">Chart</button>
+    <button role="tab" id="tab-trends" data-tab="trends" aria-selected="false">Trends</button>
+    <button role="tab" id="tab-history" data-tab="history" aria-selected="false">History</button>
+  </div>
+
+  <div class="banner" id="sampleBanner" hidden>
+    <span><strong>Showing sample data.</strong> None of it is saved or mixed into your logs.</span>
+    <button class="btn small ghost" id="sampleOff" type="button">Hide sample</button>
+  </div>
+
+  <!-- LOG -->
+  <section id="view-log" class="stack">
+    <form id="logForm" class="panel" autocomplete="off">
+      <div class="banner" id="editBanner" hidden>
+        <span id="editText">Editing a past log</span>
+        <button class="btn small ghost" id="cancelEdit" type="button">Cancel</button>
+      </div>
+      <div class="reading">
+        <div><span class="num" id="num">5.0</span><span class="of">/ 10</span></div>
+        <div class="word"><span class="dot" id="wordDot"></span><span id="word">Steady</span></div>
+      </div>
+      <div class="dial">
+        <input type="range" id="energy" min="0" max="10" step="0.1" value="5" aria-label="Energy level, 0 to 10">
+        <div class="scale"><span>0</span><span>2</span><span>4</span><span>6</span><span>8</span><span>10</span></div>
+      </div>
+      <div class="row">
+        <div class="field">
+          <label class="lab" for="energyExact">Exact value</label>
+          <input class="exact" type="number" id="energyExact" min="0" max="10" step="0.1" value="5" inputmode="decimal">
+        </div>
+        <div class="field grow">
+          <label class="lab" for="when">Time</label>
+          <div class="row">
+            <input class="grow" type="datetime-local" id="when">
+            <button class="btn small ghost" type="button" id="nowBtn">Now</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="field">
+        <span class="lab">Caffeine in the last 30 min?</span>
+        <div class="chips" id="cafChips">
+          <button type="button" class="chip" data-caf="yes" aria-pressed="false">Yes</button>
+          <button type="button" class="chip" data-caf="no" aria-pressed="false">No</button>
+        </div>
+      </div>
+      <div id="cafMore" class="stack" hidden>
+        <div class="field">
+          <span class="lab">What kind</span>
+          <div class="chips" id="kindChips"></div>
+          <input type="text" id="kindOther" placeholder="Type the kind" aria-label="Other kind of caffeine" hidden>
+        </div>
+        <div class="field">
+          <label class="lab" for="oz">How much (<span id="ozUnit">fl oz</span>)</label>
+          <div class="dial">
+            <input class="plain" type="range" id="oz" min="0" max="40" step="0.5" value="0">
+            <div class="scale"><span>0</span><span>8</span><span>16</span><span>24</span><span>32</span><span>40</span></div>
+          </div>
+          <div class="row">
+            <input class="exact" type="number" id="ozExact" min="0" max="40" step="0.1" inputmode="decimal" placeholder="0" aria-label="Exact ounces">
+            <span class="sub" id="ozRead">Slide, or type an exact amount</span>
+          </div>
+        </div>
+        <div class="field">
+          <label class="lab" for="cafMg">Estimated caffeine (mg)</label>
+          <div class="row">
+            <input class="exact" type="number" id="cafMg" min="0" max="5000" step="1" inputmode="numeric" placeholder="mg">
+            <button class="linkbtn" type="button" id="mgHint" hidden></button>
+          </div>
+          <p class="sub" id="mgNote"></p>
+        </div>
+      </div>
+
+      <div class="field">
+        <label class="lab" for="ate">Last thing I ate</label>
+        <input type="text" id="ate" list="foodList" placeholder="e.g. burrito, oatmeal, handful of almonds">
+        <datalist id="foodList"></datalist>
+      </div>
+      <div class="field">
+        <span class="lab">About how long ago</span>
+        <div class="chips" id="agoChips"></div>
+        <input type="text" id="agoOther" placeholder="Type how long ago" aria-label="Other time since eating" hidden>
+      </div>
+
+      <div class="field">
+        <label class="lab" for="actNow">What I'm doing right now</label>
+        <input type="text" id="actNow" list="actList" placeholder="e.g. writing, scrolling, cooking">
+      </div>
+      <div class="field">
+        <label class="lab" for="actPrev">What I did in the last 30 minutes</label>
+        <input type="text" id="actPrev" list="actList" placeholder="e.g. walked the dog, ate lunch, napped">
+      </div>
+      <datalist id="actList"></datalist>
+      <div class="field">
+        <label class="lab" for="mood">Mood</label>
+        <textarea id="mood" placeholder="How you feel right now"></textarea>
+      </div>
+      <div class="field">
+        <label class="lab" for="notes">General notes</label>
+        <textarea id="notes" placeholder="Anything else worth remembering: sleep, food, weather, what's going on"></textarea>
+      </div>
+      <button class="btn" type="submit" id="saveBtn">Log energy</button>
+      <p class="sub">Only the energy level is required. Short, repeated wording for activities ("writing", "nap") makes your trends sharper.</p>
+    </form>
+  </section>
+
+  <!-- CHART -->
+  <section id="view-chart" class="stack" hidden>
+    <div class="panel">
+      <div class="nav">
+        <div class="seg" id="rangeSeg" role="group" aria-label="Chart range">
+          <button type="button" data-range="day" aria-pressed="true">24 hours</button>
+          <button type="button" data-range="week" aria-pressed="false">7 days</button>
+          <button type="button" data-range="month" aria-pressed="false">Month</button>
+        </div>
+        <div class="arrows">
+          <button class="btn small ghost" type="button" id="prevBtn" aria-label="Earlier">&#8592;</button>
+          <button class="btn small ghost" type="button" id="todayBtn">Today</button>
+          <button class="btn small ghost" type="button" id="nextBtn" aria-label="Later">&#8594;</button>
+        </div>
+      </div>
+      <div class="when" id="rangeLabel" style="font-family:var(--mono);font-size:.85rem"></div>
+      <div class="chartbox" id="chartBox"></div>
+      <div class="legend"><span><span class="ring"></span>caffeine in the 30 min before</span><span>Tap a point for its details</span></div>
+      <div class="stats" id="chartStats"></div>
+      <div id="pointDetail"></div>
+    </div>
+  </section>
+
+  <!-- TRENDS -->
+  <section id="view-trends" class="stack" hidden>
+    <div class="row" style="justify-content:space-between">
+      <h2>What your logs say</h2>
+      <div class="seg" id="spanSeg" role="group" aria-label="Trend period">
+        <button type="button" data-span="30" aria-pressed="false">Last 30 days</button>
+        <button type="button" data-span="all" aria-pressed="true">All time</button>
+      </div>
+    </div>
+    <div id="trendsBody" class="stack"></div>
+  </section>
+
+  <!-- HISTORY -->
+  <section id="view-history" class="stack" hidden>
+    <div class="panel">
+      <div class="row" style="justify-content:space-between">
+        <h2>Every log</h2>
+        <button class="btn small ghost" type="button" id="csvBtn">Copy as CSV</button>
+      </div>
+      <textarea id="csvOut" aria-label="CSV export" hidden readonly></textarea>
+      <div id="histBody"></div>
+    </div>
+  </section>
+
+  <footer id="storeNote">Loading your logs…</footer>
+</div>
+<div class="toast" id="toast" hidden role="status"></div>
+
+<script>
+(function(){
+"use strict";
+var $ = function(id){ return document.getElementById(id); };
+var KINDS = ["Black tea","Green tea","V8 Energy","Coffee","Dark chocolate","Milk chocolate"];
+/* rough caffeine per ounce: fluid ounces for drinks, weight ounces for chocolate */
+var RATE = {"Black tea":5.9,"Green tea":3.5,"V8 Energy":10,"Coffee":11.9,"Dark chocolate":23,"Milk chocolate":6};
+var AGOS = ["Under 30 min","30 to 60 min","1 to 2 hours","2 to 4 hours","Over 4 hours"];
+var LEGACY_OZ = {"a few sips":1,"1 cup":8,"2 cups":16};
+var DRAINED = 3, ENERGIZED = 7;
+
+/* ---------- helpers ---------- */
+function esc(s){ return String(s == null ? "" : s).replace(/[&<>"']/g, function(c){ return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]; }); }
+function pad(n){ return String(n).padStart(2,"0"); }
+function clamp(v,a,b){ return Math.min(b, Math.max(a, v)); }
+function fmt1(v){ return (Math.round(v*10)/10).toFixed(1); }
+var STOPS = [[0,[75,79,196]],[2.5,[43,134,201]],[5,[31,163,138]],[7.5,[224,160,32]],[10,[229,56,107]]];
+function rampColor(v){
+  v = clamp(v,0,10);
+  for(var i=1;i<STOPS.length;i++){
+    if(v <= STOPS[i][0]){
+      var a=STOPS[i-1], b=STOPS[i], t=(v-a[0])/(b[0]-a[0]);
+      return "rgb("+[0,1,2].map(function(k){ return Math.round(a[1][k]+(b[1][k]-a[1][k])*t); }).join(",")+")";
+    }
+  }
+  return "rgb(229,56,107)";
+}
+function wordFor(v){
+  if(v < 0.5) return "Nearly unconscious";
+  if(v < 2) return "Running on fumes";
+  if(v < 3.5) return "Drained";
+  if(v < 4.5) return "Low";
+  if(v < 5.5) return "Steady";
+  if(v < 7) return "Lively";
+  if(v < 8.5) return "Energized";
+  if(v < 9.6) return "Buzzing";
+  return "Bouncing off the walls";
+}
+function fmtTime(ts){ return new Date(ts).toLocaleTimeString([], {hour:"numeric",minute:"2-digit"}); }
+function fmtDay(ts){ return new Date(ts).toLocaleDateString([], {weekday:"short",month:"short",day:"numeric"}); }
+function hourLabel(h){ h=((h%24)+24)%24; var s=h<12?"AM":"PM"; var x=h%12; if(x===0) x=12; return x+" "+s; }
+function hourShort(h){ h=((h%24)+24)%24; var x=h%12; if(x===0) x=12; return x+(h<12?"a":"p"); }
+function toLocalInput(ts){ var d=new Date(ts); return d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate())+"T"+pad(d.getHours())+":"+pad(d.getMinutes()); }
+function monthKey(ts){ var d=new Date(ts); return d.getFullYear()+"-"+pad(d.getMonth()+1); }
+function uid(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,8); }
+function norm(s){ return String(s||"").trim().toLowerCase().replace(/\s+/g," "); }
+function clone(o){ return JSON.parse(JSON.stringify(o)); }
+var toastTimer;
+function toast(msg){ var t=$("toast"); t.textContent=msg; t.hidden=false; clearTimeout(toastTimer); toastTimer=setTimeout(function(){ t.hidden=true; }, 3200); }
+
+/* ---------- storage: one document per month, in the viewer's private area ---------- */
+var months = {};        // key -> [entry]
+var dirty = {};         // keys changed before the store was ready
+var busy = {};          // key -> queued writes
+var chain = {};         // key -> promise
+var mode = "pending";   // pending | db | local | memory
+var col = null;
+var LS = "energy-log-months";
+
+function persist(key){
+  if(mode === "pending"){ dirty[key] = true; return; }
+  if(mode === "local"){
+    try{ localStorage.setItem(LS, JSON.stringify(months)); }
+    catch(e){ toast("This browser blocked saving. The log will be gone when you close the page."); }
+    return;
+  }
+  if(mode !== "db") return;
+  busy[key] = (busy[key]||0) + 1;
+  chain[key] = (chain[key] || Promise.resolve()).then(function(){
+    return col.doc(key).set({ entries: clone(months[key] || []) });
+  }).catch(function(err){
+    toast(err && err.code === "quota_exceeded" ? "Storage is full. Delete some old logs to keep saving." : "That change did not save. Check your connection and try again.");
+  }).then(function(){ busy[key]--; });
+}
+function mergePending(server){
+  Object.keys(dirty).forEach(function(k){
+    var have = {}; (server[k] = server[k] || []).forEach(function(e){ have[e.id] = 1; });
+    (months[k]||[]).forEach(function(e){ if(!have[e.id]) server[k].push(e); });
+  });
+  return server;
+}
+function applySnap(snap, first){
+  var server = {};
+  snap.docs.forEach(function(d){
+    if(!d.exists) return;
+    var data = d.data() || {};
+    server[d.id] = Array.isArray(data.entries) ? clone(data.entries) : [];
+  });
+  if(first){ months = mergePending(server); }
+  else{
+    Object.keys(months).forEach(function(k){ if(busy[k] > 0) server[k] = months[k]; });
+    months = server;
+  }
+  refresh();
+}
+function useLocal(){
+  var saved = {};
+  try{ saved = JSON.parse(localStorage.getItem(LS) || "{}") || {}; }catch(e){ saved = {}; }
+  months = mergePending(saved);
+  mode = "local";
+  try{ localStorage.setItem(LS, JSON.stringify(months)); }catch(e){ mode = "memory"; }
+  $("storeNote").textContent = mode === "local"
+    ? (window.claude ? "Your logs are saved in this browser only. Open this page signed in to Claude to keep them across devices."
+       : "Your logs are saved on this device. Use Copy as CSV in History now and then to keep a backup.")
+    : "Saving is not available in this view. Logs will be gone when you close the page.";
+  dirty = {}; refresh();
+}
+async function initStore(){
+  var db = null, user = null, me = null;
+  try{
+    if(window.claude && typeof window.claude.use === "function"){
+      var got = await Promise.all([window.claude.use("db"), window.claude.use("user")]);
+      db = got[0]; user = got[1];
+      me = user ? await user.id() : null;
+    }
+  }catch(e){ db = null; }
+  if(!db || !me){ useLocal(); return; }
+  try{
+    col = db.doc("data/users/" + me + "/tracker").collection("months");
+    var snap = await col.get();
+    mode = "db";
+    applySnap(snap, true);
+    Object.keys(dirty).forEach(persist); dirty = {};
+    $("storeNote").textContent = "Saved to your account. Your logs are private to you and follow you across devices.";
+    col.onSnapshot(function(s){ applySnap(s, false); }, function(){ toast("Live sync stopped. Reload the page to reconnect."); });
+  }catch(e){ col = null; mode = "pending"; useLocal(); }
+}
+
+function allLogs(){
+  if(state.sample) return sampleLogs();
+  var out = [];
+  Object.keys(months).forEach(function(k){ (months[k]||[]).forEach(function(e){ if(e && typeof e.ts === "number" && typeof e.energy === "number"){ var c = Object.assign({}, e); c._m = k; out.push(c); } }); });
+  out.sort(function(a,b){ return a.ts - b.ts; });
+  return out;
+}
+function saveEntry(entry, oldKey){
+  var k = monthKey(entry.ts);
+  if(oldKey && oldKey !== k){
+    months[oldKey] = (months[oldKey]||[]).filter(function(e){ return e.id !== entry.id; });
+    persist(oldKey);
+  }
+  var list = (months[k] = months[k] || []);
+  var i = list.findIndex(function(e){ return e.id === entry.id; });
+  if(i >= 0) list[i] = entry; else list.push(entry);
+  persist(k);
+}
+function deleteEntry(id, key){
+  months[key] = (months[key]||[]).filter(function(e){ return e.id !== id; });
+  persist(key);
+}
+
+/* ---------- sample data (in memory only) ---------- */
+var sampleCache = null;
+function sampleLogs(){
+  if(sampleCache) return sampleCache;
+  var seed = 7; function rnd(){ seed = (seed*16807) % 2147483647; return seed/2147483647; }
+  var plan = [[8.2,3.4,"making breakfast","woke up",""],[10.5,7.2,"writing","drank tea","Black tea"],[13.2,5.6,"eating lunch","writing",""],
+              [15.5,2.8,"scrolling","ate lunch",""],[17.3,6.4,"walking the dog","sat at desk",""],[21.5,4.1,"watching a show","dinner",""]];
+  var out = [], today = new Date(); today.setHours(0,0,0,0);
+  for(var d=6; d>=0; d--){
+    plan.forEach(function(p, i){
+      if(rnd() < 0.18) return;
+      var t = new Date(today); t.setDate(t.getDate()-d); t.setMinutes(Math.round((p[0] + (rnd()-.5))*60));
+      if(t.getTime() > Date.now()) return;
+      var caf = p[4] ? true : (rnd() < .15 ? null : false);
+      out.push({ id:"s"+d+"_"+i, ts:t.getTime(), energy: clamp(Math.round((p[1] + (rnd()-.5)*2.4)*10)/10, 0, 10),
+        caf: caf, kind: p[4], oz: p[4] ? (rnd()<.5 ? 8 : 16) : null, now:p[2], last30:p[3],
+        ate: ["toast","toast","rice bowl","burrito","burrito","pasta"][i], ateAgo: ["Over 4 hours","1 to 2 hours","Under 30 min","30 to 60 min","2 to 4 hours","1 to 2 hours"][i],
+        mood: i===3 ? "foggy, heavy eyes" : (i===1 ? "focused, a little jittery" : ""), _m:"sample" });
+    });
+  }
+  out.sort(function(a,b){ return a.ts-b.ts; });
+  return (sampleCache = out);
+}
+
+/* ---------- state ---------- */
+var state = { tab:"log", range:"day", anchor:new Date(), span:"all", sample:false, selected:null, editing:null, timeTouched:false, caf:null, kind:"", ago:"", oz:0, mgTouched:false, confirmDel:null };
+try{ var t0 = localStorage.getItem("energy-log-tab"); if(t0 && ["log","chart","trends","history"].indexOf(t0) >= 0) state.tab = t0; }catch(e){}
+
+/* ---------- log form ---------- */
+function setEnergy(v, from){
+  v = clamp(isNaN(v) ? 5 : v, 0, 10); v = Math.round(v*10)/10;
+  if(from !== "range") $("energy").value = v;
+  if(from !== "exact") $("energyExact").value = v;
+  $("num").textContent = fmt1(v);
+  $("word").textContent = wordFor(v);
+  $("wordDot").style.background = rampColor(v);
+}
+function chipRow(host, items, key, otherId){
+  host.innerHTML = items.concat(["Other"]).map(function(k){ return '<button type="button" class="chip" data-v="'+esc(k)+'" aria-pressed="false">'+esc(k)+'</button>'; }).join("");
+  host.addEventListener("click", function(ev){
+    var b = ev.target.closest("button"); if(!b) return;
+    var v = b.dataset.v, on = b.getAttribute("aria-pressed") === "true";
+    Array.prototype.forEach.call(host.children, function(c){ c.setAttribute("aria-pressed","false"); });
+    var other = $(otherId);
+    if(on){ state[key] = ""; other.hidden = true; updateMg(); return; }
+    b.setAttribute("aria-pressed","true");
+    if(v === "Other"){ other.hidden = false; state[key] = "__other"; other.focus(); }
+    else{ other.hidden = true; state[key] = v; }
+    updateMg();
+  });
+}
+function paintChips(host, items, value, otherId){
+  var other = $(otherId), isOther = value && items.indexOf(value) < 0;
+  Array.prototype.forEach.call(host.children, function(c){ c.setAttribute("aria-pressed", String(c.dataset.v === value || (isOther && c.dataset.v === "Other"))); });
+  other.hidden = !isOther; other.value = isOther ? value : "";
+}
+function isChoc(kind){ return /chocolate/i.test(kind||""); }
+function ozLabel(v, kind){ return (Math.round(v*100)/100) + (isChoc(kind) ? " oz" : " fl oz"); }
+function estMg(){ var r = RATE[state.kind]; return r && state.oz > 0 ? Math.round(r*state.oz) : null; }
+function updateMg(){
+  var est = estMg(), choc = isChoc(state.kind), unit = choc ? "oz" : "fl oz", rate = RATE[state.kind];
+  $("ozUnit").textContent = unit;
+  $("ozRead").textContent = state.oz > 0 ? ozLabel(state.oz, state.kind) + (!choc && state.oz % 8 === 0 ? " · " + (state.oz/8) + (state.oz === 8 ? " cup" : " cups") : "") : "Slide, or type an exact amount";
+  if(!state.mgTouched) $("cafMg").value = est == null ? "" : est;
+  var b = $("mgHint"), cur = parseFloat($("cafMg").value);
+  b.hidden = !(state.mgTouched && est != null && cur !== est);
+  b.textContent = est != null ? "Reset to suggestion: " + est + " mg" : "";
+  $("mgNote").textContent = rate
+    ? "Suggested from about " + rate + " mg per " + unit + " of " + (state.kind.indexOf("V8") === 0 ? state.kind : state.kind.toLowerCase()) + ". Type over it if you know the real number."
+    : "Pick a kind and an amount for a suggestion, or type your own number.";
+}
+function setOz(v, from){
+  v = clamp(isNaN(v) ? 0 : v, 0, 40); v = Math.round(v*100)/100; state.oz = v;
+  if(from !== "range") $("oz").value = v;
+  if(from !== "exact") $("ozExact").value = v ? v : "";
+  updateMg();
+}
+function paintCaf(){
+  Array.prototype.forEach.call($("cafChips").children, function(c){ c.setAttribute("aria-pressed", String((c.dataset.caf === "yes" && state.caf === true) || (c.dataset.caf === "no" && state.caf === false))); });
+  $("cafMore").hidden = state.caf !== true;
+}
+function resetForm(){
+  state.editing = null; state.timeTouched = false; state.caf = null; state.kind = ""; state.ago = ""; state.oz = 0; state.mgTouched = false;
+  $("editBanner").hidden = true; $("saveBtn").textContent = "Log energy";
+  setEnergy(5); $("when").value = toLocalInput(Date.now());
+  ["actNow","actPrev","mood","notes","cafMg","kindOther","ate","agoOther"].forEach(function(id){ $(id).value = ""; });
+  setOz(0); paintCaf(); paintChips($("kindChips"), KINDS, "", "kindOther"); paintChips($("agoChips"), AGOS, "", "agoOther");
+}
+function loadIntoForm(e){
+  state.editing = e; state.timeTouched = true; state.caf = e.caf === true ? true : (e.caf === false ? false : null);
+  var kind = e.kind === "V8" ? "V8 Energy" : (e.kind||"");
+  state.kind = kind && KINDS.indexOf(kind) < 0 ? "__other" : kind;
+  setEnergy(e.energy); $("when").value = toLocalInput(e.ts);
+  $("actNow").value = e.now||""; $("actPrev").value = e.last30||""; $("mood").value = e.mood||"";
+  $("notes").value = e.notes||""; state.mgTouched = typeof e.mg === "number"; $("cafMg").value = typeof e.mg === "number" ? e.mg : "";
+  setOz(typeof e.oz === "number" ? e.oz : (LEGACY_OZ[norm(e.amount)] || 0));
+  $("ate").value = e.ate||""; state.ago = e.ateAgo && AGOS.indexOf(e.ateAgo) < 0 ? "__other" : (e.ateAgo||"");
+  paintCaf(); paintChips($("kindChips"), KINDS, kind, "kindOther"); paintChips($("agoChips"), AGOS, e.ateAgo||"", "agoOther");
+  $("editBanner").hidden = false; $("editText").textContent = "Editing the log from " + fmtDay(e.ts) + ", " + fmtTime(e.ts);
+  $("saveBtn").textContent = "Save changes"; setTab("log"); window.scrollTo(0,0);
+}
+function submitForm(ev){
+  ev.preventDefault();
+  if(state.sample){ state.sample = false; }
+  var v = parseFloat($("energyExact").value); if(isNaN(v)) v = parseFloat($("energy").value);
+  v = Math.round(clamp(v,0,10)*10)/10;
+  var ts = Date.now();
+  if(state.timeTouched && $("when").value){ var p = new Date($("when").value).getTime(); if(!isNaN(p)) ts = p; }
+  var caf = state.caf;
+  var kind = caf === true ? (state.kind === "__other" ? $("kindOther").value.trim() : state.kind) : "";
+  var oz = caf === true && state.oz > 0 ? state.oz : null;
+  var ed = state.editing, mgRaw = parseFloat($("cafMg").value);
+  var mg = caf === true && !isNaN(mgRaw) && mgRaw >= 0 ? Math.round(mgRaw) : null;
+  var entry = { id: ed ? ed.id : uid(), ts: ts, energy: v, caf: caf, kind: kind, oz: oz, mg: mg,
+    ate: $("ate").value.trim(), ateAgo: state.ago === "__other" ? $("agoOther").value.trim() : state.ago,
+    now: $("actNow").value.trim(), last30: $("actPrev").value.trim(), mood: $("mood").value.trim(), notes: $("notes").value.trim() };
+  saveEntry(entry, ed ? ed._m : null);
+  toast(ed ? "Changes saved" : "Logged " + fmt1(v) + " at " + fmtTime(ts));
+  resetForm(); refresh();
+}
+
+/* ---------- chart ---------- */
+function windowFor(range, anchor){
+  var a = new Date(anchor); a.setHours(0,0,0,0);
+  var s, e, label;
+  if(range === "day"){ s = new Date(a); e = new Date(a); e.setDate(e.getDate()+1); label = a.toLocaleDateString([], {weekday:"long",month:"long",day:"numeric",year:"numeric"}); }
+  else if(range === "week"){ e = new Date(a); e.setDate(e.getDate()+1); s = new Date(e); s.setDate(s.getDate()-7);
+    var last = new Date(e); last.setDate(last.getDate()-1);
+    label = s.toLocaleDateString([], {month:"short",day:"numeric"}) + " to " + last.toLocaleDateString([], {month:"short",day:"numeric",year:"numeric"}); }
+  else{ s = new Date(a.getFullYear(), a.getMonth(), 1); e = new Date(a.getFullYear(), a.getMonth()+1, 1); label = s.toLocaleDateString([], {month:"long",year:"numeric"}); }
+  return { start:s.getTime(), end:e.getTime(), label:label, s:s, e:e };
+}
+function shift(dir){
+  var a = new Date(state.anchor);
+  if(state.range === "day") a.setDate(a.getDate()+dir);
+  else if(state.range === "week") a.setDate(a.getDate()+7*dir);
+  else{ a.setDate(1); a.setMonth(a.getMonth()+dir); }
+  state.anchor = a; state.selected = null; renderChart();
+}
+function renderChart(){
+  var w = windowFor(state.range, state.anchor), logs = allLogs().filter(function(l){ return l.ts >= w.start && l.ts < w.end; });
+  $("rangeLabel").textContent = w.label;
+  var box = $("chartBox"), W = Math.max(280, Math.round(box.clientWidth || 640)), H = Math.round(clamp(W*0.5, 230, 330));
+  var L = 28, R = 12, T = 14, B = 30, pw = W-L-R, ph = H-T-B;
+  var x = function(ts){ return L + (ts-w.start)/(w.end-w.start)*pw; }, y = function(v){ return T + (1 - v/10)*ph; };
+  var g = "";
+  for(var v=0; v<=10; v+=2){ g += '<line x1="'+L+'" x2="'+(W-R)+'" y1="'+y(v)+'" y2="'+y(v)+'" stroke="var(--line)" stroke-width="1"'+(v===0?'':' stroke-dasharray="2 4"')+'/>' + '<text x="'+(L-7)+'" y="'+(y(v)+4)+'" text-anchor="end">'+v+'</text>'; }
+  var ticks = [];
+  if(state.range === "day"){ for(var h=0; h<=24; h+=3){ var d = new Date(w.s); d.setHours(h); ticks.push({ at:d.getTime(), label:hourShort(h), line:true }); } }
+  else if(state.range === "week"){ for(var i=0; i<7; i++){ var d0 = new Date(w.s); d0.setDate(d0.getDate()+i); var d1 = new Date(d0); d1.setDate(d1.getDate()+1);
+      ticks.push({ at:d0.getTime(), line:true }); ticks.push({ at:(d0.getTime()+d1.getTime())/2, label: d0.toLocaleDateString([], {weekday:"short"}) + " " + d0.getDate() }); } }
+  else{ var dim = Math.round((w.end - w.start)/864e5); for(var k=1; k<=dim; k++){ if(k===1 || k%5===0){ var dd = new Date(w.s); dd.setDate(k); ticks.push({ at:dd.getTime(), label:String(k), line:true, anchor: k===1 ? "start" : "middle" }); } } }
+  ticks.forEach(function(t){
+    var px = x(t.at);
+    if(t.line) g += '<line x1="'+px+'" x2="'+px+'" y1="'+T+'" y2="'+(H-B)+'" stroke="var(--line)" stroke-width="1" opacity=".5"/>';
+    if(t.label){ var anc = t.anchor || (px > W-R-10 ? "end" : (px < L+10 ? "start" : "middle")); g += '<text x="'+px+'" y="'+(H-B+18)+'" text-anchor="'+anc+'">'+esc(t.label)+'</text>'; }
+  });
+  var now = Date.now();
+  if(now >= w.start && now < w.end) g += '<line x1="'+x(now)+'" x2="'+x(now)+'" y1="'+T+'" y2="'+(H-B)+'" stroke="var(--accent)" stroke-width="1.5" stroke-dasharray="4 3"/><text x="'+clamp(x(now), L+14, W-R-14)+'" y="'+(T-3)+'" text-anchor="middle" style="fill:var(--accent)">now</text>';
+  if(logs.length > 1) g += '<polyline fill="none" stroke="var(--trace)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" points="'+logs.map(function(l){ return x(l.ts).toFixed(1)+","+y(l.energy).toFixed(1); }).join(" ")+'"/>';
+  var r = state.range === "day" ? 5.5 : 4.5;
+  logs.forEach(function(l){
+    var cx = x(l.ts).toFixed(1), cy = y(l.energy).toFixed(1), sel = state.selected === l.id;
+    if(l.caf === true) g += '<circle cx="'+cx+'" cy="'+cy+'" r="'+(r+3.5)+'" fill="none" stroke="var(--fg)" stroke-width="1.6"/>';
+    g += '<circle cx="'+cx+'" cy="'+cy+'" r="'+(sel ? r+2 : r)+'" fill="'+rampColor(l.energy)+'" stroke="var(--surface)" stroke-width="'+(sel?3:1.5)+'"/>';
+  });
+  logs.forEach(function(l){ g += '<circle class="hit" data-id="'+esc(l.id)+'" cx="'+x(l.ts).toFixed(1)+'" cy="'+y(l.energy).toFixed(1)+'" r="15" fill="transparent" tabindex="0" role="button" aria-label="'+esc(fmtDay(l.ts)+" "+fmtTime(l.ts)+", energy "+fmt1(l.energy))+'" style="cursor:pointer"/>'; });
+  if(!logs.length) g += '<text x="'+(L+pw/2)+'" y="'+(T+ph/2)+'" text-anchor="middle" style="font-size:13px">No logs in this range</text>';
+  box.innerHTML = '<svg viewBox="0 0 '+W+' '+H+'" role="img" aria-label="Energy over time, '+esc(w.label)+'">'+g+'</svg>';
+
+  var st = $("chartStats");
+  if(logs.length){
+    var avg = logs.reduce(function(s,l){ return s+l.energy; },0)/logs.length;
+    var hi = logs.reduce(function(a,b){ return b.energy > a.energy ? b : a; }), lo = logs.reduce(function(a,b){ return b.energy < a.energy ? b : a; });
+    var stamp = function(l){ return (state.range === "day" ? "" : new Date(l.ts).toLocaleDateString([], {month:"short",day:"numeric"}) + ", ") + fmtTime(l.ts); };
+    st.innerHTML = '<div class="stat"><div class="lab">Logs</div><div class="v">'+logs.length+'</div></div>'
+      + '<div class="stat"><div class="lab">Average</div><div class="v">'+fmt1(avg)+'</div></div>'
+      + '<div class="stat"><div class="lab">Highest</div><div class="v">'+fmt1(hi.energy)+'</div><div class="d">'+esc(stamp(hi))+'</div></div>'
+      + '<div class="stat"><div class="lab">Lowest</div><div class="v">'+fmt1(lo.energy)+'</div><div class="d">'+esc(stamp(lo))+'</div></div>';
+  } else st.innerHTML = "";
+  var sel = logs.find(function(l){ return l.id === state.selected; });
+  $("pointDetail").innerHTML = sel ? '<div class="detail">'+detailHtml(sel)+'</div>' : (allLogs().length ? "" : emptyHtml("Your chart fills in as you log. A few logs a day is enough to see a shape."));
+}
+function amtText(l){ return typeof l.oz === "number" ? ozLabel(l.oz, l.kind) : (l.amount || ""); }
+function ateText(l){ return [l.ate, l.ateAgo ? l.ateAgo.charAt(0).toLowerCase() + l.ateAgo.slice(1) + " ago" : ""].filter(Boolean).join(", "); }
+function mgText(l){ return typeof l.mg === "number" ? "about " + l.mg + " mg" : ""; }
+function detailHtml(l){
+  var rows = [["Time", fmtDay(l.ts)+", "+fmtTime(l.ts)]];
+  if(l.caf === true) rows.push(["Caffeine", ["Yes", l.kind, amtText(l), mgText(l)].filter(Boolean).join(" · ")]);
+  if(l.caf === false) rows.push(["Caffeine", "No"]);
+  if(l.ate || l.ateAgo) rows.push(["Last ate", ateText(l)]);
+  if(l.now) rows.push(["Doing", l.now]);
+  if(l.last30) rows.push(["Last 30 min", l.last30]);
+  if(l.mood) rows.push(["Mood", l.mood]);
+  if(l.notes) rows.push(["Notes", l.notes]);
+  return '<div class="word"><span class="dot" style="background:'+rampColor(l.energy)+'"></span><strong>'+fmt1(l.energy)+'</strong> '+esc(wordFor(l.energy))+'</div>'
+    + '<dl class="kv">'+rows.map(function(r){ return '<dt>'+esc(r[0])+'</dt><dd>'+esc(r[1])+'</dd>'; }).join("")+'</dl>';
+}
+function emptyHtml(msg){
+  return '<div class="empty"><div>'+esc(msg)+'</div><div class="row" style="justify-content:center"><button class="btn small" type="button" data-go="log">Log your energy</button>'
+    + (state.sample ? '' : '<button class="btn small ghost" type="button" data-sample="1">See it with a sample week</button>')+'</div></div>';
+}
+
+/* ---------- trends ---------- */
+function groupBy(logs, field){
+  var m = {};
+  logs.forEach(function(l){ var k = norm(l[field]); if(!k) return; var g = m[k] || (m[k] = { label:String(l[field]).trim(), sum:0, n:0 }); g.sum += l.energy; g.n++; });
+  return Object.keys(m).map(function(k){ var g = m[k]; g.avg = g.sum/g.n; return g; });
+}
+function rankHtml(groups, emptyMsg){
+  if(!groups.length) return '<p class="sub">'+esc(emptyMsg)+'</p>';
+  return '<ul class="rank">'+groups.map(function(g){ return '<li><span class="name">'+esc(g.label)+'</span><span class="avg"><span class="dot" style="background:'+rampColor(g.avg)+'"></span>'+fmt1(g.avg)+'</span><span class="n">'+g.n+(g.n===1?' log':' logs')+'</span></li>'; }).join("")+'</ul>';
+}
+function topCounts(logs, field, n){
+  return groupBy(logs, field).sort(function(a,b){ return b.n - a.n || a.label.localeCompare(b.label); }).slice(0, n).map(function(g){ return esc(g.label) + (g.n > 1 ? ' <span class="n" style="font-family:var(--mono);color:var(--muted)">×'+g.n+'</span>' : ''); }).join(", ");
+}
+function stateCard(title, blurb, logs){
+  var h = '<div class="panel"><div><h2>'+esc(title)+'</h2><p class="sub">'+esc(blurb)+'</p></div>';
+  if(!logs.length) return h + '<p class="sub">No logs in this band yet.</p></div>';
+  var now = topCounts(logs,"now",4), prev = topCounts(logs,"last30",4), caf = logs.filter(function(l){ return l.caf === true; }).length;
+  var hours = {}; logs.forEach(function(l){ var hr = new Date(l.ts).getHours(); hours[hr] = (hours[hr]||0)+1; });
+  var topHour = Object.keys(hours).sort(function(a,b){ return hours[b]-hours[a] || a-b; })[0];
+  h += '<dl class="kv"><dt>Logs</dt><dd>'+logs.length+'</dd>'
+    + '<dt>Most often</dt><dd>around '+esc(hourLabel(+topHour))+'</dd>'
+    + '<dt>Doing</dt><dd>'+(now || "Nothing noted")+'</dd>'
+    + '<dt>Just before</dt><dd>'+(prev || "Nothing noted")+'</dd>'
+    + '<dt>Last ate</dt><dd>'+(topCounts(logs,"ate",4) || "Nothing noted")+'</dd>'
+    + '<dt>Caffeine</dt><dd>'+caf+' of '+logs.length+' had some in the 30 min before</dd></dl>';
+  var notes = logs.filter(function(l){ return l.mood; }).slice(-3).reverse();
+  notes.forEach(function(l){ h += '<p class="quote">'+esc(l.mood)+' <span style="font-family:var(--mono);font-size:.78rem">('+esc(new Date(l.ts).toLocaleDateString([], {month:"short",day:"numeric"}))+')</span></p>'; });
+  return h + '</div>';
+}
+function renderTrends(){
+  var logs = allLogs(), body = $("trendsBody");
+  if(state.span === "30"){ var cut = Date.now() - 30*864e5; logs = logs.filter(function(l){ return l.ts >= cut; }); }
+  if(!logs.length){ body.innerHTML = '<div class="panel">'+emptyHtml(allLogs().length ? "No logs in the last 30 days." : "Trends appear here once you have a few logs: your best and worst hours, and what you were doing at each end.")+'</div>'; return; }
+
+  /* by hour of day */
+  var hrs = []; for(var i=0;i<24;i++) hrs.push({h:i,sum:0,n:0});
+  logs.forEach(function(l){ var b = hrs[new Date(l.ts).getHours()]; b.sum += l.energy; b.n++; });
+  var have = hrs.filter(function(b){ return b.n; }); have.forEach(function(b){ b.avg = b.sum/b.n; });
+  var best = have.reduce(function(a,b){ return b.avg > a.avg ? b : a; }), worst = have.reduce(function(a,b){ return b.avg < a.avg ? b : a; });
+  var box = body.clientWidth || 640, W = Math.max(280, Math.round(box - 36)), H = 190, L = 28, R = 8, T = 12, B = 26, pw = W-L-R, ph = H-T-B, bw = pw/24;
+  var y = function(v){ return T + (1 - v/10)*ph; }, g = "";
+  [0,5,10].forEach(function(v){ g += '<line x1="'+L+'" x2="'+(W-R)+'" y1="'+y(v)+'" y2="'+y(v)+'" stroke="var(--line)" stroke-width="1"'+(v?' stroke-dasharray="2 4"':'')+'/><text x="'+(L-7)+'" y="'+(y(v)+4)+'" text-anchor="end">'+v+'</text>'; });
+  hrs.forEach(function(b){
+    var bx = L + b.h*bw;
+    if(b.n){ var top = y(b.avg), hh = Math.max(2, y(0)-top); g += '<rect x="'+(bx+1.5).toFixed(1)+'" y="'+top.toFixed(1)+'" width="'+Math.max(2,bw-3).toFixed(1)+'" height="'+hh.toFixed(1)+'" rx="2.5" fill="'+rampColor(b.avg)+'"><title>'+esc(hourLabel(b.h)+": average "+fmt1(b.avg)+" from "+b.n+(b.n===1?" log":" logs"))+'</title></rect>'; }
+    else g += '<circle cx="'+(bx+bw/2).toFixed(1)+'" cy="'+(y(0)-4)+'" r="1.4" fill="var(--line)"/>';
+    if(b.h % 6 === 0) g += '<text x="'+(bx+bw/2).toFixed(1)+'" y="'+(H-B+17)+'" text-anchor="middle">'+hourShort(b.h)+'</text>';
+  });
+  g += '<text x="'+(L+23.5*bw).toFixed(1)+'" y="'+(H-B+17)+'" text-anchor="middle">11p</text>';
+  var html = '<div class="panel"><div><h2>Energy by time of day</h2><p class="sub">Average of every log in each hour. Hours with a dot have no logs yet.</p></div>'
+    + '<svg viewBox="0 0 '+W+' '+H+'" role="img" aria-label="Average energy by hour of day">'+g+'</svg>'
+    + '<div class="stats"><div class="stat"><div class="lab">Most energy</div><div class="v">'+esc(hourLabel(best.h))+'</div><div class="d">avg '+fmt1(best.avg)+' over '+best.n+(best.n===1?' log':' logs')+'</div></div>'
+    + '<div class="stat"><div class="lab">Least energy</div><div class="v">'+esc(hourLabel(worst.h))+'</div><div class="d">avg '+fmt1(worst.avg)+' over '+worst.n+(worst.n===1?' log':' logs')+'</div></div>'
+    + '<div class="stat"><div class="lab">Overall</div><div class="v">'+fmt1(logs.reduce(function(s,l){return s+l.energy;},0)/logs.length)+'</div><div class="d">'+logs.length+(logs.length===1?' log':' logs')+'</div></div></div>'
+    + (logs.length < 15 ? '<p class="sub">This is an early read. With fewer than about 15 logs, one unusual day can move an hour a lot.</p>' : '') + '</div>';
+
+  html += '<div class="two">' + stateCard("When you're drained", "Logs at "+DRAINED+" or below", logs.filter(function(l){ return l.energy <= DRAINED; }))
+       + stateCard("When you're energized", "Logs at "+ENERGIZED+" or above", logs.filter(function(l){ return l.energy >= ENERGIZED; })) + '</div>';
+
+  var byNow = groupBy(logs,"now").sort(function(a,b){ return b.avg-a.avg; }), byPrev = groupBy(logs,"last30").sort(function(a,b){ return b.avg-a.avg; });
+  html += '<div class="two"><div class="panel"><div><h2>Energy while doing</h2><p class="sub">Activities you logged in the moment, highest average first</p></div>'+rankHtml(byNow,"Fill in what you're doing when you log and it will rank here.")+'</div>'
+       + '<div class="panel"><div><h2>Energy after doing</h2><p class="sub">What you did in the 30 minutes before, highest average first</p></div>'+rankHtml(byPrev,"Fill in the last 30 minutes when you log and it will rank here.")+'</div></div>';
+
+  var byFood = groupBy(logs,"ate").sort(function(a,b){ return a.avg-b.avg; });
+  var byAgo = groupBy(logs,"ateAgo").sort(function(a,b){ var x = AGOS.indexOf(a.label), y = AGOS.indexOf(b.label); return (x<0?99:x) - (y<0?99:y); });
+  html += '<div class="two"><div class="panel"><div><h2>Energy after eating</h2><p class="sub">By the last thing you ate, lowest average first</p></div>'+rankHtml(byFood,"Fill in the last thing you ate and it will rank here.")+'</div>'
+       + '<div class="panel"><div><h2>Energy by time since eating</h2><p class="sub">How you feel at each distance from your last meal</p></div>'+rankHtml(byAgo,"Pick how long ago you ate and it will show here.")+'</div></div>';
+  var cg = [], yes = logs.filter(function(l){ return l.caf === true; }), no = logs.filter(function(l){ return l.caf === false; });
+  var mk = function(label, arr){ if(arr.length) cg.push({ label:label, n:arr.length, avg: arr.reduce(function(s,l){return s+l.energy;},0)/arr.length }); };
+  mk("With caffeine", yes); mk("Without caffeine", no);
+  var withMg = yes.filter(function(l){ return typeof l.mg === "number"; });
+  var mgLine = withMg.length ? '<p class="sub">Average estimated dose on caffeine logs: about '+Math.round(withMg.reduce(function(s,l){return s+l.mg;},0)/withMg.length)+' mg ('+withMg.length+(withMg.length===1?' log':' logs')+' with a figure).</p>' : '';
+  var kinds = groupBy(yes,"kind").sort(function(a,b){ return b.avg-a.avg; });
+  html += '<div class="panel"><div><h2>Caffeine</h2><p class="sub">Average energy at the moment of logging, split by whether you had caffeine in the 30 minutes before. Logs where you left it blank are not counted.</p></div>'
+       + rankHtml(cg.concat(kinds), "Answer the caffeine question on a few logs to compare.") + mgLine + '</div>';
+  body.innerHTML = html;
+}
+
+/* ---------- history ---------- */
+function renderHistory(){
+  var logs = allLogs().slice().reverse(), host = $("histBody");
+  if(!logs.length){ host.innerHTML = emptyHtml("Nothing logged yet."); return; }
+  var html = "", lastDay = "";
+  logs.forEach(function(l){
+    var day = fmtDay(l.ts);
+    if(day !== lastDay){ html += (lastDay ? '</ul>' : '') + '<div class="daysep">'+esc(day)+'</div><ul class="hist">'; lastDay = day; }
+    var bits = [];
+    if(l.caf === true) bits.push("Caffeine: " + (["", l.kind, amtText(l), mgText(l)].filter(Boolean).join(", ") || "yes"));
+    if(l.caf === false) bits.push("No caffeine");
+    if(l.ate || l.ateAgo) bits.push("Ate: " + ateText(l));
+    var acts = state.sample ? '' : (state.confirmDel === l.id
+      ? '<button class="btn small danger" type="button" data-del="'+esc(l.id)+'">Delete this log</button><button class="linkbtn" type="button" data-keep="1">Keep it</button>'
+      : '<button class="linkbtn" type="button" data-edit="'+esc(l.id)+'">Edit</button><button class="linkbtn" type="button" data-ask="'+esc(l.id)+'">Delete</button>');
+    html += '<li><div class="e"><span class="dot" style="background:'+rampColor(l.energy)+'"></span>'+fmt1(l.energy)+'</div><div class="body"><span class="t">'+esc(fmtTime(l.ts))+' · '+esc(wordFor(l.energy))+'</span>'
+      + (l.now ? '<span><strong>Doing:</strong> '+esc(l.now)+'</span>' : '') + (l.last30 ? '<span><strong>Before:</strong> '+esc(l.last30)+'</span>' : '')
+      + (bits.length ? '<span>'+esc(bits.join(" · "))+'</span>' : '') + (l.mood ? '<span><strong>Mood:</strong> '+esc(l.mood)+'</span>' : '') + (l.notes ? '<span class="quote">'+esc(l.notes)+'</span>' : '')
+      + '<span class="acts">'+acts+'</span></div></li>';
+  });
+  host.innerHTML = html + '</ul>';
+}
+function csv(){
+  var q = function(s){ return '"' + String(s == null ? "" : s).replace(/"/g,'""') + '"'; };
+  return ["timestamp,energy,caffeine_last_30_min,caffeine_kind,caffeine_amount,caffeine_mg_estimate,last_ate,ate_how_long_ago,doing_now,last_30_min,mood,general_notes"].concat(allLogs().map(function(l){
+    return [q(toLocalInput(l.ts)), l.energy, l.caf === true ? "y" : (l.caf === false ? "n" : ""), q(l.kind), q(amtText(l)), typeof l.mg === "number" ? l.mg : "", q(l.ate), q(l.ateAgo), q(l.now), q(l.last30), q(l.mood), q(l.notes)].join(",");
+  })).join("\n");
+}
+
+/* ---------- shell ---------- */
+function setTab(t){
+  state.tab = t; try{ localStorage.setItem("energy-log-tab", t); }catch(e){}
+  ["log","chart","trends","history"].forEach(function(k){ $("view-"+k).hidden = k !== t; $("tab-"+k).setAttribute("aria-selected", String(k === t)); });
+  refresh();
+}
+function refresh(){
+  var logs = allLogs();
+  $("sampleBanner").hidden = !state.sample;
+  $("countline").textContent = logs.length && !state.sample ? logs.length + (logs.length === 1 ? " log" : " logs") + " · last " + fmt1(logs[logs.length-1].energy) + " on " + fmtDay(logs[logs.length-1].ts) : "0 = nearly unconscious · 10 = bouncing off the walls";
+  var seen = {}, opts = "";
+  logs.slice().reverse().forEach(function(l){ [l.now, l.last30].forEach(function(a){ var k = norm(a); if(k && !seen[k]){ seen[k] = 1; opts += '<option value="'+esc(String(a).trim())+'"></option>'; } }); });
+  $("actList").innerHTML = opts;
+  var seenF = {}, optsF = "";
+  logs.slice().reverse().forEach(function(l){ var k = norm(l.ate); if(k && !seenF[k]){ seenF[k] = 1; optsF += '<option value="'+esc(String(l.ate).trim())+'"></option>'; } });
+  $("foodList").innerHTML = optsF;
+  if(state.tab === "chart") renderChart();
+  if(state.tab === "trends") renderTrends();
+  if(state.tab === "history") renderHistory();
+}
+
+document.querySelector(".tabs").addEventListener("click", function(ev){ var b = ev.target.closest("button"); if(b) setTab(b.dataset.tab); });
+$("energy").addEventListener("input", function(){ setEnergy(parseFloat(this.value), "range"); });
+$("energyExact").addEventListener("input", function(){ if(this.value !== "" && !isNaN(parseFloat(this.value))) setEnergy(parseFloat(this.value), "exact"); });
+$("energyExact").addEventListener("blur", function(){ setEnergy(parseFloat(this.value)); });
+$("when").addEventListener("input", function(){ state.timeTouched = true; });
+$("nowBtn").addEventListener("click", function(){ $("when").value = toLocalInput(Date.now()); state.timeTouched = false; });
+$("cafChips").addEventListener("click", function(ev){ var b = ev.target.closest("button"); if(!b) return; var v = b.dataset.caf === "yes"; state.caf = state.caf === v ? null : v; paintCaf(); });
+chipRow($("kindChips"), KINDS, "kind", "kindOther"); chipRow($("agoChips"), AGOS, "ago", "agoOther");
+$("oz").addEventListener("input", function(){ setOz(parseFloat(this.value), "range"); });
+$("ozExact").addEventListener("input", function(){ setOz(this.value === "" ? 0 : parseFloat(this.value), "exact"); });
+$("cafMg").addEventListener("input", function(){ state.mgTouched = this.value !== ""; updateMg(); });
+$("logForm").addEventListener("submit", submitForm);
+$("cancelEdit").addEventListener("click", resetForm);
+$("mgHint").addEventListener("click", function(){ state.mgTouched = false; updateMg(); });
+$("rangeSeg").addEventListener("click", function(ev){ var b = ev.target.closest("button"); if(!b) return; state.range = b.dataset.range; state.selected = null;
+  Array.prototype.forEach.call(this.children, function(c){ c.setAttribute("aria-pressed", String(c === b)); }); renderChart(); });
+$("spanSeg").addEventListener("click", function(ev){ var b = ev.target.closest("button"); if(!b) return; state.span = b.dataset.span;
+  Array.prototype.forEach.call(this.children, function(c){ c.setAttribute("aria-pressed", String(c === b)); }); renderTrends(); });
+$("prevBtn").addEventListener("click", function(){ shift(-1); });
+$("nextBtn").addEventListener("click", function(){ shift(1); });
+$("todayBtn").addEventListener("click", function(){ state.anchor = new Date(); state.selected = null; renderChart(); });
+function pick(ev){ var c = ev.target.closest(".hit"); if(!c) return; state.selected = state.selected === c.dataset.id ? null : c.dataset.id; renderChart(); }
+$("chartBox").addEventListener("click", pick);
+$("chartBox").addEventListener("keydown", function(ev){ if(ev.key === "Enter" || ev.key === " "){ ev.preventDefault(); pick(ev); } });
+$("sampleOff").addEventListener("click", function(){ state.sample = false; state.selected = null; refresh(); });
+document.addEventListener("click", function(ev){
+  var b = ev.target.closest("[data-go],[data-sample],[data-edit],[data-ask],[data-del],[data-keep]"); if(!b) return;
+  if(b.dataset.go) setTab(b.dataset.go);
+  else if(b.dataset.sample){ state.sample = true; state.anchor = new Date(); refresh(); }
+  else if(b.dataset.edit){ var e = allLogs().find(function(l){ return l.id === b.dataset.edit; }); if(e) loadIntoForm(e); }
+  else if(b.dataset.ask){ state.confirmDel = b.dataset.ask; renderHistory(); }
+  else if(b.dataset.keep){ state.confirmDel = null; renderHistory(); }
+  else if(b.dataset.del){ var d = allLogs().find(function(l){ return l.id === b.dataset.del; }); if(d){ deleteEntry(d.id, d._m); state.confirmDel = null; toast("Log deleted"); refresh(); } }
+});
+$("csvBtn").addEventListener("click", function(){
+  var text = csv(), out = $("csvOut");
+  var fallback = function(){ out.hidden = false; out.value = text; out.focus(); out.select(); toast("Select all and copy the text below"); };
+  if(navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(function(){ toast("CSV copied"); }, fallback); else fallback();
+});
+var rz; window.addEventListener("resize", function(){ clearTimeout(rz); rz = setTimeout(function(){ if(state.tab === "chart") renderChart(); if(state.tab === "trends") renderTrends(); }, 150); });
+
+resetForm(); setTab(state.tab); initStore();
+})();
+</script>
+
+<script>
+if("serviceWorker" in navigator){ window.addEventListener("load", function(){ navigator.serviceWorker.register("sw.js").catch(function(){}); }); }
+if(navigator.storage && navigator.storage.persist){ navigator.storage.persist().catch(function(){}); }
+</script>
+</body>
+</html>

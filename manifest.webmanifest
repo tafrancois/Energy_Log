@@ -1,0 +1,15 @@
+{
+  "name": "Energy Log",
+  "short_name": "Energy Log",
+  "description": "Log your energy from 0 to 10 and see when and why it rises and falls.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#0f1120",
+  "theme_color": "#0f1120",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
