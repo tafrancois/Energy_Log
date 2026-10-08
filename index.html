@@ -55,8 +55,6 @@ input[type=text],input[type=number],input[type=datetime-local],textarea{
   background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:10px 12px;width:100%;min-width:0}
 textarea{resize:vertical;min-height:64px;overflow:hidden;display:block;font-family:inherit;line-height:1.4}
 textarea.one{min-height:44px}
-.recent{gap:6px}
-.recent .chip{padding:4px 10px;font-size:.82rem;color:var(--muted)}
 
 /* the reading */
 .reading{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;flex-wrap:wrap}
@@ -218,7 +216,6 @@ footer{font-size:.82rem;color:var(--muted);text-align:center}
           <input class="exact" type="number" id="cal" min="0" max="9999" step="1" inputmode="numeric" placeholder="est." aria-label="Estimated calories" style="width:84px !important">
           <span class="sub" style="align-self:center">cal</span>
         </div>
-        <div class="chips recent" id="ateRecent"></div>
       </div>
       <div class="field">
         <span class="lab">About how long ago</span>
@@ -229,12 +226,10 @@ footer{font-size:.82rem;color:var(--muted);text-align:center}
       <div class="field">
         <label class="lab" for="actNow">What I was doing right before logging</label>
         <textarea class="one" rows="1" id="actNow" placeholder="e.g. writing, scrolling, cooking"></textarea>
-        <div class="chips recent" id="actNowRecent"></div>
       </div>
       <div class="field">
         <label class="lab" for="actPrev">What I did in the last 30 minutes</label>
         <textarea class="one" rows="1" id="actPrev" placeholder="e.g. walked the dog, ate lunch, napped"></textarea>
-        <div class="chips recent" id="actPrevRecent"></div>
       </div>
       <div class="field">
         <label class="lab" for="mood">Mood</label>
@@ -773,9 +768,6 @@ function csv(){
 var GROW = ["ate","actNow","actPrev","mood","notes"];
 function grow(el){ if(!el.offsetParent) return; el.style.height = "auto"; el.style.height = (el.scrollHeight + 2) + "px"; }
 function growAll(){ GROW.forEach(function(id){ grow($(id)); }); }
-function recentChips(hostId, target, values){
-  $(hostId).innerHTML = values.slice(0,4).map(function(v){ return '<button type="button" class="chip" data-fill="'+target+'" data-val="'+esc(v)+'">'+esc(v.length > 28 ? v.slice(0,27)+"…" : v)+'</button>'; }).join("");
-}
 function setTab(t){
   state.tab = t; try{ localStorage.setItem("energy-log-tab", t); }catch(e){}
   ["log","chart","trends","history"].forEach(function(k){ $("view-"+k).hidden = k !== t; $("tab-"+k).setAttribute("aria-selected", String(k === t)); });
@@ -785,10 +777,6 @@ function refresh(){
   var logs = allLogs();
   $("sampleBanner").hidden = !state.sample;
   $("countline").textContent = logs.length && !state.sample ? logs.length + (logs.length === 1 ? " log" : " logs") + " · last " + fmt1(logs[logs.length-1].energy) + " on " + fmtDay(logs[logs.length-1].ts) : "0 = nearly unconscious · 10 = bouncing off the walls";
-  var recent = function(fields){ var seen = {}, out = []; logs.slice().reverse().forEach(function(l){ fields.forEach(function(f){ var k = norm(l[f]); if(k && !seen[k]){ seen[k] = 1; out.push(String(l[f]).trim()); } }); }); return out; };
-  recentChips("ateRecent", "ate", recent(["ate"]));
-  recentChips("actNowRecent", "actNow", recent(["now","last30"]));
-  recentChips("actPrevRecent", "actPrev", recent(["last30","now"]));
   if(state.tab === "chart") renderChart();
   if(state.tab === "trends") renderTrends();
   if(state.tab === "history") renderHistory();
@@ -824,7 +812,6 @@ $("chartBox").addEventListener("click", pick);
 $("chartBox").addEventListener("keydown", function(ev){ if(ev.key === "Enter" || ev.key === " "){ ev.preventDefault(); pick(ev); } });
 $("sampleOff").addEventListener("click", function(){ state.sample = false; state.selected = null; refresh(); });
 document.addEventListener("click", function(ev){
-  var f = ev.target.closest("[data-fill]"); if(f){ var t = $(f.dataset.fill); t.value = f.dataset.val; grow(t); if(t.id === "ate") suggestCal(); return; }
   var b = ev.target.closest("[data-go],[data-sample],[data-edit],[data-ask],[data-del],[data-keep]"); if(!b) return;
   if(b.dataset.go) setTab(b.dataset.go);
   else if(b.dataset.sample){ state.sample = true; state.anchor = new Date(); refresh(); }
